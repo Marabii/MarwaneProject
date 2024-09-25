@@ -10,6 +10,7 @@ const handleComments = require("./handleComments");
 const orders = require("./orders");
 const products = require("./products");
 const cart = require("./cart");
+const googleStorage = require("./googleStorage");
 
 // router.use(fetchApis);
 router.use(users);
@@ -19,5 +20,6 @@ router.use(handleComments);
 router.use(orders);
 router.use(products);
 router.use(cart);
+router.use(googleStorage);
 
 module.exports = router;

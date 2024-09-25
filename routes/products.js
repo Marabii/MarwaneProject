@@ -1,12 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const connection = require("../models/products");
+const mongoose = require("mongoose");
 const Product = connection.models.Product;
 const connectionOrder = require("../models/orders");
 const Order = connectionOrder.models.Order;
 const { searchProductsWithAlgolia } = require("../lib/algoliaSearch");
-const path = require("path");
-const fs = require("fs");
+const axios = require('axios');
+const passport = require("passport")
 
 router.get("/api/getProducts", async (req, res) => {
   const limit = Number(req.query.limit) || 10;
@@ -14,7 +15,14 @@ router.get("/api/getProducts", async (req, res) => {
   const categoryFilter = String(req.query.filter).toLowerCase();
   const isCard = req.query.isCard === "true";
   const sort = req.query.sort || "price-desc"; // Default sort order
-  const projection = { _id: 1, name: 1, price: 1, promo: 1, stock: 1 };
+  const projection = {
+    _id: 1,
+    name: 1,
+    price: 1,
+    promo: 1,
+    stock: 1,
+    productThumbnail: 1,
+  };
   const material = req.query.material;
 
   let query = {};
@@ -52,6 +60,12 @@ router.get("/api/getProducts", async (req, res) => {
 
 router.get("/api/getProduct/:id", async (req, res) => {
   const id = req.params.id;
+
+  // Check if the id is a valid ObjectId
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    console.log("Invalid ObjectId:", id);
+    return res.status(400).json({ message: "Invalid product ID" });
+  }
 
   try {
     const product = await Product.findById(id);
@@ -150,20 +164,30 @@ router.get("/api/most-purchased-products", async (req, res) => {
   }
 });
 
-router.get("/api/getAdditionalImages/:id", async (req, res) => {
-  const id = req.params.id;
-  const additionalImagesPath = path.join(
-    __dirname,
-    "../assets/additionalImages"
-  );
-
+router.post('/api/get-rate', passport.authenticate("jwt", { session: false }), async (req, res) => {
   try {
-    const files = await fs.promises.readdir(additionalImagesPath);
-    const filteredFiles = files.filter((file) => file.startsWith(id));
-    res.json(filteredFiles);
+    const { targetCurrency } = req.body;
+
+    if (!targetCurrency) {
+      return res.status(400).json({ error: 'Please provide a target currency.' });
+    }
+
+    // Wise API details
+    const WISE_API_URL = `${process.env.WISE_LINK}/v1/rates?source=SAR&target=${targetCurrency}`;
+    const API_TOKEN = process.env.WISE_API_TOKEN;
+
+    // Call the Wise API
+    const response = await axios.get(WISE_API_URL, {
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+      },
+    });
+
+    // Return the rate information from Wise API
+    res.json(response.data);
   } catch (error) {
-    console.error("Failed to read directory or process files:", error);
-    res.status(500).send("Error retrieving image files");
+    console.error(error);
+    res.status(500).json({ error: 'Error fetching rate from Wise API.' });
   }
 });
 
