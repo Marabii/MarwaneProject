@@ -164,7 +164,7 @@ router.get("/api/most-purchased-products", async (req, res) => {
   }
 });
 
-router.post('/api/get-rate', passport.authenticate("jwt", { session: false }), async (req, res) => {
+router.post('/api/get-rate', async (req, res) => {
   try {
     const { targetCurrency } = req.body;
 
