@@ -173,7 +173,7 @@ router.post('/api/get-rate', async (req, res) => {
     }
 
     // Wise API details
-    const WISE_API_URL = `${process.env.WISE_LINK}/v1/rates?source=SAR&target=${targetCurrency}`;
+    const WISE_API_URL = `https://api.sandbox.transferwise.tech/v1/rates?source=SAR&target=${targetCurrency}`;
     const API_TOKEN = process.env.WISE_API_TOKEN;
 
     // Call the Wise API
