@@ -11,6 +11,7 @@ const orders = require("./orders");
 const products = require("./products");
 const cart = require("./cart");
 const googleStorage = require("./googleStorage");
+const googleOAuth = require("./googleOAuth");
 
 // router.use(fetchApis);
 router.use(users);
@@ -21,5 +22,6 @@ router.use(orders);
 router.use(products);
 router.use(cart);
 router.use(googleStorage);
+router.use(googleOAuth)
 
 module.exports = router;

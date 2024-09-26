@@ -7,7 +7,6 @@ const connectionOrder = require("../models/orders");
 const Order = connectionOrder.models.Order;
 const { searchProductsWithAlgolia } = require("../lib/algoliaSearch");
 const axios = require('axios');
-const passport = require("passport")
 
 router.get("/api/getProducts", async (req, res) => {
   const limit = Number(req.query.limit) || 10;
@@ -173,7 +172,7 @@ router.post('/api/get-rate', async (req, res) => {
     }
 
     // Wise API details
-    const WISE_API_URL = `https://api.sandbox.transferwise.tech/v1/rates?source=SAR&target=${targetCurrency}`;
+    const WISE_API_URL = `${process.env.WISE_LINK}/v1/rates?source=SAR&target=${targetCurrency}`;
     const API_TOKEN = process.env.WISE_API_TOKEN;
 
     // Call the Wise API

@@ -34,6 +34,7 @@ const EmailVerificationCodeSchema = new Schema(
 
 // Main User schema
 const UserSchema = new Schema({
+  isAuthenticatedByGoogle: { type: Boolean, default: false },
   username: {
     type: String,
     required: [true, "Username is required"],
@@ -43,11 +44,15 @@ const UserSchema = new Schema({
   },
   hash: {
     type: String,
-    required: [true, "Password hash is required"],
+    required: function () {
+      return !this.isAuthenticatedByGoogle;
+    },
   },
   salt: {
     type: String,
-    required: [true, "Salt is required for password hashing"],
+    required: function () {
+      return !this.isAuthenticatedByGoogle;
+    },
   },
   email: {
     type: String,

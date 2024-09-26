@@ -15,6 +15,12 @@ router.post("/api/login", function (req, res, next) {
           .json({ success: false, msg: "could not find user" });
       }
 
+      if (user.isAuthenticatedByGoogle) {
+        return res
+          .status(404)
+          .json({ success: false, msg: "Please use Google login" });
+      }
+
       // Function defined at bottom of app.js
       const isValid = utils.validPassword(
         req.body.password,
@@ -177,20 +183,28 @@ router.post(
   }
 );
 
+
 router.get(
-  "/api/getUserData/:id",
+  "/api/getUserData",
   passport.authenticate("jwt", { session: false }),
   async (req, res) => {
-    const userId = req.params.id;
+    const userId = req.user._id;
+
+    // Check if the provided id is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).send("Invalid user ID format");
+    }
+
     try {
-      const userData = await User.find(
-        { _id: userId },
+      const userData = await User.findById(
+        userId,
         { username: 1, email: 1, isEmailVerified: 1, isAdmin: 1 }
       );
+
       if (userData) {
         res.status(200).json(userData);
       } else {
-        res.status(404).send("no user found");
+        res.status(404).send("No user found");
       }
     } catch (e) {
       console.error("getUserData", e);
