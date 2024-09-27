@@ -74,8 +74,8 @@ router.get(
   "/api/verifyEmail",
   passport.authenticate("jwt", { session: false }),
   async (req, res) => {
-    const { email, userId } = req.query;
-
+    const { email } = req.query;
+    const userId = req.user._id
     if (!email || !userId) {
       return res.status(400).send("Missing email or user ID");
     }
@@ -120,8 +120,8 @@ router.get(
   "/api/verifyEmailCode",
   passport.authenticate("jwt", { session: false }),
   async (req, res) => {
-    const { code: codeFromUser, userId } = req.query;
-
+    const { code: codeFromUser } = req.query;
+    const userId = req.user._id
     if (!codeFromUser || !userId) {
       return res.status(400).send("Missing code or user ID");
     }
@@ -223,10 +223,7 @@ router.get("/api/verifyUser", (req, res, next) => {
       // If authentication failed, user will be false
       res.json({ isLoggedIn: false });
     } else {
-      User.findById(user._id).then((data) => {
-        const cartItems = data.cart;
-        res.status(200).json({ isLoggedIn: true, cartItems: cartItems });
-      });
+        res.status(200).json({ isLoggedIn: true });
     }
   })(req, res, next);
 });

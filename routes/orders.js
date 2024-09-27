@@ -1,8 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const passport = require("passport");
-const connectionOrder = require("../models/orders");
-const Order = connectionOrder.models.Order;
+const Order = require("../models/orders");
+const Product = require("../models/products");
+const sendEmail = require("../lib/email");
 
 router.get(
   "/api/getRecentOrder",
@@ -114,5 +115,79 @@ router.get(
     }
   }
 );
+
+router.post("/api/accept-order", async (req, res) => {
+  try {
+    const { fullName, phoneNumber, country, cartItems, address, email } =
+      req.body;
+
+    // Validate request body
+    if (!fullName || !phoneNumber || !country || !cartItems || !address) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Fetch and process cart items in parallel
+    const cart = await Promise.all(
+      cartItems.map(async (item) => {
+        const cartItemId = item.productId;
+        const product = await Product.findById(cartItemId);
+
+        if (!product) {
+          throw new Error(`Product with ID ${cartItemId} not found`);
+        }
+
+        const returnObject = {
+          productId: cartItemId,
+          quantity: item.quantity,
+          price: product.price,
+        };
+
+        // Apply promotion if applicable
+        if (product.promo && product.promo.promotionType === "buyXget1") {
+          returnObject.bonus = Math.floor(
+            item.quantity /
+              product.promo.discountDetails.buyXGet1Discount.buyQuantity
+          );
+        }
+
+        return returnObject;
+      })
+    );
+
+    // Calculate total amount
+    const totalAmount = cart.reduce(
+      (acc, currItem) => acc + currItem.price * currItem.quantity,
+      0
+    );
+
+    // Create new order
+    const order = new Order({
+      cart,
+      address,
+      totalAmount,
+      fullName,
+      phoneNumber,
+      country,
+      email,
+    });
+
+    // Save order to database
+    await order.save();
+    sendEmail(
+      email,
+      "Order confirmation",
+      "We are happy to tell you that we have received your order and it is currently under processing"
+    );
+    // Send success response
+    return res
+      .status(201)
+      .json({ message: "Order accepted successfully", orderId: order._id });
+  } catch (error) {
+    console.error("Error processing order:", error);
+    return res
+      .status(500)
+      .json({ error: "Failed to accept order", details: error.message });
+  }
+});
 
 module.exports = router;

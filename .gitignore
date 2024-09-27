@@ -4,3 +4,6 @@ id_rsa_priv.pem
 id_rsa_pub.pem
 testingApis.rest
 service-account.json
+test.js
+fixProductDB
+htmlEmail.html

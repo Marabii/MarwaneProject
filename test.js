@@ -1,30 +1,12 @@
-// Import the Nodemailer library
-const nodemailer = require('nodemailer');
+require("dotenv").config();
+const sendEmail = require("./lib/email");
 
-// Create a transporter using SMTP transport
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // use SSL
-    auth: {
-      user: 'jibli.salaa@gmail.com',
-      pass: 'uwkziylazcsdysni',
-    }
-  });
-
-// Email data
-const mailOptions = {
-  from: 'jibli.salaa@gmail.com',
-  to: 'lahessine.bouhmou@gmail.com',
-  subject: 'Node.js Email Tutorial',
-  text: '<body><h1>salam</h1><p style="color:red;">hello world</p></body>',
+const replacements = {
+  "Customer Name": "John Doe",
+  "Product Name": "Sofa",
+  "Order Number": "123456",
+  "Estimated Delivery Date": "October 10, 2024",
+  "Company Name": "Furniture Co.",
 };
 
-// Send the email
-transporter.sendMail(mailOptions, (error, info) => {
-  if (error) {
-    console.error('Error sending email:', error);
-  } else {
-    console.log('Email sent:', info.response);
-  }
-});
+sendEmail("minehamza90@gmail.com", "Your Order Confirmation", replacements);

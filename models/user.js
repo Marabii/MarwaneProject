@@ -1,23 +1,6 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
-// Define a sub-schema for cart items
-const CartItemSchema = new Schema(
-  {
-    productId: {
-      type: String,
-      ref: "Product", // Assuming a Product model exists
-      required: true,
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1, // Minimum quantity should be at least 1
-    },
-  },
-  { _id: false }
-);
-
 // Define a sub-schema for email verification code
 const EmailVerificationCodeSchema = new Schema(
   {
@@ -67,7 +50,6 @@ const UserSchema = new Schema({
     type: Boolean,
     default: false,
   },
-  cart: [CartItemSchema],
   isEmailVerified: {
     type: Boolean,
     default: false,

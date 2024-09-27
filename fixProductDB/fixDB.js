@@ -1,45 +1,64 @@
 const fs = require("fs");
 const path = require("path");
 
-// Path to the JSON file
-const productsFilePath = path.join(
-  __dirname,
-  "ThirdEcommerceWebsite.products.json"
-);
+// Load the products JSON file
+const filePath = path.join(__dirname, "ThirdEcommerceWebsite.products.json"); // Update the path to your JSON file
 
-// Directory containing additional images
-const additionalImagesDir = path.join(__dirname, "../assets/additionalImages");
+// Read the products from the file
+fs.readFile(filePath, "utf8", (err, data) => {
+  if (err) {
+    console.error("Error reading the file:", err);
+    return;
+  }
 
-// Read and parse the JSON file
-let productsData = fs.readFileSync(productsFilePath, "utf8");
-let products = JSON.parse(productsData);
+  let products = JSON.parse(data);
 
-// Get all filenames in the additionalImages directory
-const allAdditionalImages = fs.readdirSync(additionalImagesDir);
+  // Function to generate a random promotion
+  const generateRandomPromo = () => {
+    // 50% chance to have a promo, 50% chance to not
+    if (Math.random() > 0.5) {
+      return null;
+    }
 
-// Loop through each product in the JSON array
-products.forEach((product) => {
-  const oid = product._id.$oid;
+    // Randomly decide the promotion type
+    const promotionType = Math.random() > 0.5 ? "percentage" : "buyXget1";
 
-  // Add the 'productThumbnail' field
-  product.productThumbnail = `https://storage.googleapis.com/taha_saad/assets/products/${oid}.png`;
+    if (promotionType === "percentage") {
+      return {
+        promotionType: "percentage",
+        discountDetails: {
+          percentageDiscount: {
+            amount: Math.floor(Math.random() * 81), // Random percentage between 0 and 80
+          },
+        },
+      };
+    } else {
+      // Random Buy X Get Y discount
+      const buyQuantity = Math.floor(Math.random() * 2) + 1; // Random buy amount between 1 and 5
 
-  // Find all image files that start with the same '$oid'
-  const matchingImages = allAdditionalImages.filter((filename) =>
-    filename.startsWith(oid)
-  );
+      return {
+        promotionType: "buyXget1",
+        discountDetails: {
+          buyXGet1Discount: {
+            buyQuantity,
+          },
+        },
+      };
+    }
+  };
 
-  // Construct URLs for the additional images
-  product.additionalImages = matchingImages.map((filename) => {
-    return `https://storage.googleapis.com/taha_saad/assets/additionalImages/${filename}`;
+  // Add promo to each product
+  products = products.map((product) => {
+    product.promo = generateRandomPromo(); // Add promo field to product
+    return product;
+  });
+
+  // Write the updated products back to the file
+  fs.writeFile(filePath, JSON.stringify(products, null, 2), (err) => {
+    if (err) {
+      console.error("Error writing the file:", err);
+      return;
+    }
+    console.log("Promo field added to products successfully!");
   });
 });
-
-// Write the updated products back to a new JSON file
-const outputFilePath = path.join(
-  __dirname,
-  "ThirdEcommerceWebsite.products.updated.json"
-);
-fs.writeFileSync(outputFilePath, JSON.stringify(products, null, 2), "utf8");
-
-console.log("Updated products have been saved to", outputFilePath);

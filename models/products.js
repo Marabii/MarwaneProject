@@ -1,6 +1,35 @@
 const { ObjectId } = require("mongodb");
 const mongoose = require("mongoose");
-require("dotenv").config();
+
+const promoSchema = {
+  promotionType: {
+    type: String,
+    enum: ["percentage", "buyXGet1"],
+    required: true,
+  },
+  discountDetails: {
+    percentageDiscount: {
+      amount: {
+        type: Number,
+        default: 0,
+        min: [0, "Percentage discount cannot be negative"],
+        max: [80, "Percentage discount cannot exceed 80%"],
+        required: function () {
+          return this.promotionType === "percentage";
+        },
+      },
+    },
+    buyXGet1Discount: {
+      buyQuantity: {
+        type: Number,
+        min: [1, "You must buy at least one item"],
+        required: function () {
+          return this.promotionType === "buyXGet1";
+        },
+      },
+    },
+  },
+};
 
 // Main Product schema
 const ProductSchema = new mongoose.Schema({
@@ -56,12 +85,7 @@ const ProductSchema = new mongoose.Schema({
     max: [5, "Reviews cannot be greater than 5"],
     default: 0,
   },
-  promo: {
-    type: Number,
-    min: [0, "Promo cannot be negative"],
-    max: [100, "Promo cannot be greater than 100%"],
-    default: 0,
-  },
+  promo: { type: promoSchema, required: false },
   numberOfOrders: {
     type: Number,
     min: [0, "Number of Orders cannot be negative"],
@@ -72,4 +96,4 @@ const ProductSchema = new mongoose.Schema({
 const Product = mongoose.model("Product", ProductSchema);
 
 // Expose the connection
-module.exports = mongoose.connection;
+module.exports = Product;

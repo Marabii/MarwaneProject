@@ -1,18 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
-const connection = require("../models/products");
-const Product = connection.models.Product;
+const Product = require("../models/products");
 const passport = require("passport");
-const User = mongoose.model("User");
-const connectionOrder = require("../models/orders");
-const Order = connectionOrder.models.Order;
+const Order = require("../models/orders");
 const isAdmin = require("../lib/authMiddleware.cjs");
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
-const connectionComment = require("../models/comments");
-const Comment = connectionComment.models.Comment;
 
 router.get(
   "/api/verifyAdmin",
@@ -264,28 +259,6 @@ function tryParseJSON(jsonString) {
     typeof jsonString === "string" ? JSON.parse(jsonString) : jsonString;
   return parsedData;
 }
-
-router.delete(
-  "/api/deleteComment/:id",
-  passport.authenticate("jwt", { session: false }),
-  isAdmin,
-  async (req, res) => {
-    try {
-      const commentId = req.params.id;
-      if (!commentId) {
-        return res.status(400).json({ message: "Missing required fields" });
-      }
-      const deletedComment = await Comment.findByIdAndDelete(commentId);
-      if (!deletedComment) {
-        return res.status(404).json({ message: "Comment not found" });
-      }
-      res.status(200).json({ message: "Comment deleted successfully" });
-    } catch (err) {
-      console.error("Error deleting comment:", err);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  }
-);
 
 router.post(
   "/api/setPromo",

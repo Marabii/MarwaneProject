@@ -1,12 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const connection = require("../models/products");
 const mongoose = require("mongoose");
-const Product = connection.models.Product;
-const connectionOrder = require("../models/orders");
-const Order = connectionOrder.models.Order;
+const Product = require("../models/products");
+const Order = require("../models/orders");
 const { searchProductsWithAlgolia } = require("../lib/algoliaSearch");
-const axios = require('axios');
+const axios = require("axios");
 
 router.get("/api/getProducts", async (req, res) => {
   const limit = Number(req.query.limit) || 10;
@@ -163,12 +161,14 @@ router.get("/api/most-purchased-products", async (req, res) => {
   }
 });
 
-router.post('/api/get-rate', async (req, res) => {
+router.post("/api/get-rate", async (req, res) => {
   try {
     const { targetCurrency } = req.body;
 
     if (!targetCurrency) {
-      return res.status(400).json({ error: 'Please provide a target currency.' });
+      return res
+        .status(400)
+        .json({ error: "Please provide a target currency." });
     }
 
     // Wise API details
@@ -186,7 +186,7 @@ router.post('/api/get-rate', async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error fetching rate from Wise API.' });
+    res.status(500).json({ error: "Error fetching rate from Wise API." });
   }
 });
 
