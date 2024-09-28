@@ -1,64 +1,44 @@
 const fs = require("fs");
 const path = require("path");
 
-// Load the products JSON file
-const filePath = path.join(__dirname, "ThirdEcommerceWebsite.products.json"); // Update the path to your JSON file
-
-// Read the products from the file
-fs.readFile(filePath, "utf8", (err, data) => {
-  if (err) {
-    console.error("Error reading the file:", err);
-    return;
-  }
-
-  let products = JSON.parse(data);
-
-  // Function to generate a random promotion
-  const generateRandomPromo = () => {
-    // 50% chance to have a promo, 50% chance to not
-    if (Math.random() > 0.5) {
-      return null;
-    }
-
-    // Randomly decide the promotion type
-    const promotionType = Math.random() > 0.5 ? "percentage" : "buyXget1";
-
-    if (promotionType === "percentage") {
-      return {
-        promotionType: "percentage",
-        discountDetails: {
-          percentageDiscount: {
-            amount: Math.floor(Math.random() * 81), // Random percentage between 0 and 80
-          },
-        },
-      };
-    } else {
-      // Random Buy X Get Y discount
-      const buyQuantity = Math.floor(Math.random() * 2) + 1; // Random buy amount between 1 and 5
-
-      return {
-        promotionType: "buyXget1",
-        discountDetails: {
-          buyXGet1Discount: {
-            buyQuantity,
-          },
-        },
-      };
-    }
-  };
-
-  // Add promo to each product
-  products = products.map((product) => {
-    product.promo = generateRandomPromo(); // Add promo field to product
-    return product;
-  });
-
-  // Write the updated products back to the file
-  fs.writeFile(filePath, JSON.stringify(products, null, 2), (err) => {
+// Step 1: Read the JSON file
+fs.readFile(
+  path.join(__dirname, "ThirdEcommerceWebsite.products.json"),
+  "utf8",
+  (err, data) => {
     if (err) {
-      console.error("Error writing the file:", err);
+      console.error("Error reading the file:", err);
       return;
     }
-    console.log("Promo field added to products successfully!");
-  });
-});
+
+    try {
+      // Step 2: Parse the JSON data into an array of objects
+      const jsonArray = JSON.parse(data);
+
+      // Step 3: Iterate through each object and add the objectID field
+      const updatedArray = jsonArray.map((obj) => {
+        // Check if the _id.$oid field exists before assigning the objectID
+        if (obj._id && obj._id.$oid) {
+          obj.objectID = obj._id.$oid;
+        }
+        return obj;
+      });
+
+      // Step 4: Convert the updated array back to JSON
+      const updatedJson = JSON.stringify(updatedArray, null, 2);
+
+      // Step 5: Write the updated JSON to a new file
+      fs.writeFile("output.json", updatedJson, "utf8", (err) => {
+        if (err) {
+          console.error("Error writing the file:", err);
+          return;
+        }
+        console.log(
+          "Successfully added objectID to each object and wrote to output.json"
+        );
+      });
+    } catch (parseError) {
+      console.error("Error parsing the JSON data:", parseError);
+    }
+  }
+);

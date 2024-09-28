@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const promoSchema = {
   promotionType: {
     type: String,
-    enum: ["percentage", "buyXGet1"],
+    enum: ["percentage", "buyXget1"],
     required: true,
   },
   discountDetails: {
@@ -24,7 +24,7 @@ const promoSchema = {
         type: Number,
         min: [1, "You must buy at least one item"],
         required: function () {
-          return this.promotionType === "buyXGet1";
+          return this.promotionType === "buyXget1";
         },
       },
     },
@@ -33,11 +33,12 @@ const promoSchema = {
 
 // Main Product schema
 const ProductSchema = new mongoose.Schema({
-  _id: { type: ObjectId },
   name: {
     type: String,
     required: [true, "Product name is required"],
     trim: true,
+    minLength: [5, "Product name cannot be less than 5 characters long"],
+    maxLength: [20, "Product name cannot exceed 20 characters"],
   },
   price: {
     type: Number,
@@ -56,7 +57,7 @@ const ProductSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: [0, "Stock cannot be negative"],
-    default: 0, // Default value if none is provided
+    default: 0,
   },
   category: {
     type: String,
@@ -79,13 +80,13 @@ const ProductSchema = new mongoose.Schema({
     type: Map,
     of: mongoose.Schema.Types.Mixed,
   },
-  reviews: {
-    type: Number,
-    min: [0, "Reviews cannot be negative"],
-    max: [5, "Reviews cannot be greater than 5"],
-    default: 0,
+  objectID: {
+    type: String,
+    required: false,
   },
   promo: { type: promoSchema, required: false },
+  productThumbnail: { type: String, required: true },
+  additionalImages: { type: [String], required: false },
   numberOfOrders: {
     type: Number,
     min: [0, "Number of Orders cannot be negative"],
@@ -93,7 +94,15 @@ const ProductSchema = new mongoose.Schema({
   },
 });
 
+// Pre-save hook to ensure objectID is set to _id
+ProductSchema.pre("save", function (next) {
+  if (!this.objectID) {
+    this.objectID = this._id.toString(); // Convert MongoDB ObjectId to string
+  }
+  next();
+});
+
 const Product = mongoose.model("Product", ProductSchema);
 
-// Expose the connection
+// Expose the model
 module.exports = Product;

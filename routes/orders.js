@@ -4,6 +4,7 @@ const passport = require("passport");
 const Order = require("../models/orders");
 const Product = require("../models/products");
 const sendEmail = require("../lib/email");
+const isAdmin = require("../lib/authMiddleware.cjs");
 
 router.get(
   "/api/getRecentOrder",
@@ -40,16 +41,16 @@ router.get(
 );
 
 router.get(
-  "/api/getOrdersData",
+  "/api/orders",
   passport.authenticate("jwt", { session: false }),
+  isAdmin,
   async (req, res) => {
-    const userId = req.user._id;
     try {
-      const order = await Order.find({ userId });
-      if (!order) {
+      const orders = await Order.find({});
+      if (!orders) {
         return res.status(404).send("No orders found for this user");
       }
-      res.status(200).json(order);
+      res.status(200).json(orders);
     } catch (e) {
       console.error("getOrdersData error: ", e);
       res.status(500).send("Internal server error");
@@ -173,11 +174,13 @@ router.post("/api/accept-order", async (req, res) => {
 
     // Save order to database
     await order.save();
-    sendEmail(
-      email,
-      "Order confirmation",
-      "We are happy to tell you that we have received your order and it is currently under processing"
-    );
+    if (email) {
+      sendEmail(
+        email,
+        "Order confirmation",
+        "We are happy to tell you that we have received your order and it is currently under processing"
+      );
+    }
     // Send success response
     return res
       .status(201)

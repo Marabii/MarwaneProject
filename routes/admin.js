@@ -7,7 +7,7 @@ const Order = require("../models/orders");
 const isAdmin = require("../lib/authMiddleware.cjs");
 const fs = require("fs");
 const path = require("path");
-const multer = require("multer");
+const { deleteFileFromBucket } = require("../lib/googleStorage");
 
 router.get(
   "/api/verifyAdmin",
@@ -21,104 +21,61 @@ router.get(
   }
 );
 
-router.get(
-  "/api/monthly-revenues",
-  passport.authenticate("jwt", { session: false }),
-  isAdmin,
-  async (req, res) => {
-    const currentYear = new Date().getFullYear();
-    const revenues = await Order.aggregate([
+router.get("/api/monthly-revenues", async (req, res) => {
+  try {
+    const year = new Date().getFullYear(); // Get the current year
+    const monthlyRevenue = await Order.aggregate([
+      // Match orders by the current year and exclude cancelled orders
       {
         $match: {
-          "paymentDetails.status": "paid",
           paymentDate: {
-            $gte: new Date(`${currentYear}-01-01T00:00:00.000Z`),
-            $lte: new Date(`${currentYear}-12-31T23:59:59.999Z`),
+            $gte: new Date(`${year}-01-01`), // Start of the year
+            $lt: new Date(`${year + 1}-01-01`), // End of the year
           },
+          status: { $ne: "cancelled" }, // Exclude cancelled orders
         },
       },
-      {
-        $project: {
-          month: { $month: { $toDate: "$paymentDate" } },
-          totalAmount: 1,
-        },
-      },
+      // Unwind the cart array to treat each cart item individually
+      { $unwind: "$cart" },
+      // Group by month and sum up the total price for each cart item
       {
         $group: {
-          _id: "$month",
-          totalAmount: { $sum: "$totalAmount" },
+          _id: { $month: "$paymentDate" }, // Group by month
+          totalRevenue: {
+            $sum: { $multiply: ["$cart.price", "$cart.quantity"] },
+          }, // Sum the price * quantity for each item
         },
       },
-      {
-        $sort: { _id: 1 },
-      },
+      // Sort by month to ensure the order is correct
+      { $sort: { _id: 1 } },
     ]);
 
-    // Initialize an array of 12 elements all set to 0
-    let monthlyTotals = new Array(12).fill(0);
+    // Create an array of 12 elements (months) initialized to 0
+    const revenueArray = Array(12).fill(0);
 
-    // Fill the array with the revenue data received
-    revenues.forEach((item) => {
-      monthlyTotals[item._id - 1] = item.totalAmount;
+    // Map the monthly revenue results to the corresponding month in the array
+    monthlyRevenue.forEach((item) => {
+      revenueArray[item._id - 1] = item.totalRevenue; // Subtract 1 to align with zero-indexed months
     });
 
-    res.json(monthlyTotals);
+    res.status(200).json(revenueArray);
+  } catch (error) {
+    console.error("Error fetching monthly revenues:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
-);
-
+});
 //----Handling Saving Products----
-
-const thumbnailStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const dir = path.join(__dirname, "../assets/products");
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, req.body.randomId || req.params.id + ".png");
-  },
-});
-
-const uploadThumbnail = multer({
-  storage: thumbnailStorage,
-  limits: {
-    fileSize: 5 * 1024 * 1024,
-  },
-});
-
-const productImagesStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const dir = path.join(__dirname, "../assets/additionalImages");
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    cb(null, dir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, req.params.id + "-" + uniqueSuffix + ".png");
-  },
-});
-
-const uploadImages = multer({
-  storage: productImagesStorage,
-  limits: {
-    fileSize: 10 * 1024 * 1024,
-    files: 3,
-  },
-});
 
 router.post(
   "/api/addProduct",
   passport.authenticate("jwt", { session: false }),
   isAdmin,
-  uploadThumbnail.single("thumbnail"),
   async (req, res) => {
+    console.log(req.body);
     try {
       const product = new Product({
-        _id: new mongoose.Types.ObjectId(req.body.randomId),
         name: req.body.name,
         price: req.body.price,
         description: req.body.description,
@@ -126,9 +83,11 @@ router.post(
         stock: req.body.stock,
         category: req.body.category,
         productDetails: req.body.productDetails,
-        specification: JSON.parse(req.body.specification),
-        materials: JSON.parse(req.body.materials),
-        tags: JSON.parse(req.body.tags),
+        specification: req.body.specification,
+        materials: req.body.materials,
+        tags: req.body.tags,
+        productThumbnail: req.body.productThumbnail,
+        additionalImages: req.body.additionalImages,
       });
 
       const savedProduct = await product.save();
@@ -146,28 +105,11 @@ router.post(
 );
 
 router.post(
-  "/api/updateThumbnail/:id",
-  uploadThumbnail.single("thumbnail"),
-  (req, res) => {
-    res.status(200).send("thumbnail uploaded successfully");
-  }
-);
-
-router.post(
-  "/api/addAdditionalImages/:id",
-  uploadImages.array("images", 3),
-  (req, res) => {
-    res.status(200).send("File uploaded successfully");
-  }
-);
-
-router.post(
   "/api/updateProduct/:id",
   passport.authenticate("jwt", { session: false }),
   isAdmin,
-  uploadThumbnail.none(),
-  uploadImages.none(),
   async (req, res) => {
+    console.log(req.body);
     try {
       const {
         name,
@@ -177,6 +119,8 @@ router.post(
         stock,
         category,
         productDetails,
+        productThumbnail,
+        additionalImages,
       } = req.body;
       if (!name || !price || !description) {
         return res
@@ -196,6 +140,8 @@ router.post(
         specification: tryParseJSON(req.body.specification),
         materials: tryParseJSON(req.body.materials),
         tags: tryParseJSON(req.body.tags),
+        productThumbnail,
+        additionalImages,
       };
 
       // Use findOneAndReplace to update the product
@@ -225,25 +171,23 @@ router.post(
 router.delete("/api/deleteProduct/:id", async (req, res) => {
   try {
     const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+
     if (!deletedProduct) {
       return res.status(404).json({ success: false, msg: "Product not found" });
     }
 
     // Delete additional images
-    const dir = path.join(__dirname, "../assets/additionalImages");
-    const images = fs.readdirSync(dir);
-    images.forEach((image) => {
-      if (image.startsWith(deletedProduct._id)) {
-        fs.unlinkSync(path.join(dir, image));
-      }
-    });
+    deletedProduct.additionalImages &&
+      deletedProduct.additionalImages.forEach((image) => {
+        const fileName = image.split(`${process.env.BUCKET_NAME}/`)[1];
+        deleteFileFromBucket(fileName);
+      });
 
     // Delete thumbnail
-    const thumbnailPath = path.join(
-      __dirname,
-      `../assets/thumbnails/${deletedProduct._id}.png`
-    );
-    fs.unlinkSync(thumbnailPath);
+    const fileName = deletedProduct.productThumbnail.split(
+      `${process.env.BUCKET_NAME}/`
+    )[1];
+    deleteFileFromBucket(fileName);
 
     res
       .status(200)
@@ -265,13 +209,20 @@ router.post(
   passport.authenticate("jwt", { session: false }),
   isAdmin,
   async (req, res) => {
-    const { option, itemsWithDiscount, discountForAll } = req.body;
+    const {
+      option,
+      itemsWithDiscount,
+      discountForAll,
+      promoType,
+      buyQuantity,
+    } = req.body;
 
     // Validate input
     if (
       !option ||
       (option === "specific" && !Array.isArray(itemsWithDiscount)) ||
-      (option === "all" && !discountForAll)
+      (option === "all" && !discountForAll && promoType === "percentage") ||
+      (promoType === "buyXget1" && !buyQuantity)
     ) {
       return res.status(400).json({ message: "Invalid request parameters" });
     }
@@ -281,7 +232,20 @@ router.post(
         const products = await Product.find({});
         await Promise.all(
           products.map(async (product) => {
-            product.promo = discountForAll;
+            product.promo = {
+              promotionType: promoType,
+              ...(promoType === "percentage"
+                ? {
+                    discountDetails: {
+                      percentageDiscount: { amount: discountForAll },
+                    },
+                  }
+                : {
+                    discountDetails: {
+                      buyXGet1Discount: { buyQuantity: buyQuantity },
+                    },
+                  }),
+            };
             await product.save().catch((error) => {
               console.error(
                 `Error saving product ID ${product._id}:`,
@@ -301,7 +265,21 @@ router.post(
               if (!product) {
                 throw new Error(`Product with ID ${item.product} not found`);
               }
-              product.promo = item.discount;
+
+              product.promo = {
+                promotionType: item.type,
+                ...(item.type === "percentage"
+                  ? {
+                      discountDetails: {
+                        percentageDiscount: { amount: item.discount },
+                      },
+                    }
+                  : {
+                      discountDetails: {
+                        buyXGet1Discount: { buyQuantity: item.discount },
+                      },
+                    }),
+              };
               await product.save().catch((error) => {
                 console.error(
                   `Error saving product ID ${product._id}:`,
